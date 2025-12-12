@@ -1,0 +1,7 @@
+{
+  "name": "Style Mix & Match",
+  "description": "An AI-powered virtual closet that helps you mix items from different retailers, categorizes your wardrobe using computer vision, and suggests outfits based on your style profile.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
