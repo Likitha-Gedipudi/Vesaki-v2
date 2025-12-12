@@ -91,6 +91,9 @@ export const ModelGallery: React.FC<ModelGalleryProps> = ({ photos, selectedPhot
           <span className="material-symbols-outlined text-lg">add_a_photo</span>
           Add Photo
         </button>
+        <p className="text-[10px] text-gray-400 text-center mt-3 leading-tight">
+           Do not upload images of swimwear, lingerie, or sensitive content. Keep it professional.
+        </p>
         <input 
             type="file" 
             ref={fileInputRef} 

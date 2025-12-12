@@ -8,7 +8,9 @@ export interface GeneratedLook {
   id: string;
   originalPhotoId: string;
   prompt: string;
+  garmentImage?: string; // New: Optional reference image for outfit
   resultUrl: string;
+  videoUrl?: string; // New: Optional 360 video url
   timestamp: number;
 }
 

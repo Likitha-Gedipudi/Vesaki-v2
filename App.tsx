@@ -7,6 +7,7 @@ const App: React.FC = () => {
   const [photos, setPhotos] = useState<UserPhoto[]>([]);
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [history, setHistory] = useState<GeneratedLook[]>([]);
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
 
   // Load state
   useEffect(() => {
@@ -49,6 +50,8 @@ const App: React.FC = () => {
     safeSaveToStorage('smm_photos', updated);
     // Auto select new photo
     setSelectedPhotoId(photo.id);
+    // Close mobile sidebar after selection/add
+    setIsLeftSidebarOpen(false);
   };
 
   const handleRemovePhoto = (id: string) => {
@@ -58,49 +61,142 @@ const App: React.FC = () => {
     if (selectedPhotoId === id) setSelectedPhotoId(null);
   };
 
+  const handleSelectPhoto = (id: string) => {
+      setSelectedPhotoId(id);
+      setIsLeftSidebarOpen(false); // Close sidebar on mobile on select
+  };
+
   const handleSaveLook = (look: GeneratedLook) => {
-      // Keep only last 5 looks to manage storage size
-      const MAX_HISTORY = 5;
+      // Keep only last 10 looks to manage storage size better with compression
+      const MAX_HISTORY = 10;
       const updated = [look, ...history].slice(0, MAX_HISTORY);
       
       setHistory(updated);
       safeSaveToStorage('smm_history', updated);
   };
 
+  // NEW: Update an existing look (e.g. adding a video URL to it)
+  const handleUpdateLook = (updatedLook: GeneratedLook) => {
+      const updatedHistory = history.map(look => 
+          look.id === updatedLook.id ? updatedLook : look
+      );
+      setHistory(updatedHistory);
+      safeSaveToStorage('smm_history', updatedHistory);
+  };
+
+  const handleRemoveLook = (id: string) => {
+    const updated = history.filter(l => l.id !== id);
+    setHistory(updated);
+    safeSaveToStorage('smm_history', updated);
+  };
+
+  // NEW: Feature to take a result and make it the new source
+  const handlePromoteToModel = (imageUrl: string) => {
+      const newPhoto: UserPhoto = {
+          id: crypto.randomUUID(),
+          url: imageUrl,
+          createdAt: Date.now()
+      };
+      handleAddPhoto(newPhoto);
+  };
+
+  // NEW: Hard Reset Function
+  const handleHardReset = () => {
+      if (window.confirm("WARNING: This will delete ALL photos, generated looks, and history. This action cannot be undone.\n\nAre you sure you want to reset the studio?")) {
+          try {
+              localStorage.removeItem('smm_photos');
+              localStorage.removeItem('smm_history');
+              // Clear state
+              setPhotos([]);
+              setHistory([]);
+              setSelectedPhotoId(null);
+              // Force sidebar reset
+              setIsLeftSidebarOpen(false);
+          } catch (e) {
+              console.error("Failed to clear storage", e);
+              alert("Could not fully clear storage.");
+          }
+      }
+  };
+
   const selectedPhoto = photos.find(p => p.id === selectedPhotoId);
 
   return (
-    <div className="h-screen bg-[#FDFDFD] flex flex-col text-gray-900 overflow-hidden font-sans">
+    <div className="h-[100dvh] w-full bg-[#FDFDFD] flex flex-col text-gray-900 overflow-hidden font-sans">
       
       {/* Header */}
-      <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 shrink-0 z-20">
-         <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg shadow-purple-900/20">
-                S
+      <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 md:px-6 shrink-0 z-30 relative">
+         <div className="flex items-center gap-4">
+            {/* Mobile Menu Button */}
+            <button 
+                onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+                className="md:hidden text-gray-500 hover:text-black focus:outline-none"
+            >
+                <span className="material-symbols-outlined text-2xl">
+                    {isLeftSidebarOpen ? 'close' : 'menu'}
+                </span>
+            </button>
+
+            <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg shadow-gray-200">
+                    V
+                </div>
+                <span className="font-serif font-bold text-xl tracking-tight">Vesaki</span>
             </div>
-            <span className="font-serif font-bold text-lg tracking-tight">StyleMix Studio</span>
+         </div>
+
+         {/* Right Side Header Actions */}
+         <div className="flex items-center gap-2">
+            <button 
+                onClick={handleHardReset}
+                className="text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-red-100"
+                title="Clear all data and start over"
+            >
+                <span className="material-symbols-outlined text-sm">restart_alt</span>
+                <span className="hidden md:inline">Reset Studio</span>
+            </button>
          </div>
       </header>
 
       {/* Workspace */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative min-h-0">
          
-         {/* Sidebar: My Models */}
-         <aside className="w-72 border-r border-gray-100 bg-white flex flex-col shrink-0 z-10 shadow-sm">
+         {/* Sidebar: My Models (Responsive) */}
+         {/* Desktop: Always visible. Mobile: Absolute with slide animation */}
+         <aside 
+            className={`
+                w-72 bg-white border-r border-gray-100 flex flex-col shrink-0 z-20 
+                md:relative md:translate-x-0 md:flex
+                fixed inset-y-0 left-0 h-full shadow-2xl md:shadow-none transition-transform duration-300 ease-in-out
+                ${isLeftSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}
+         >
             <ModelGallery 
                 photos={photos} 
                 selectedPhotoId={selectedPhotoId}
-                onSelect={setSelectedPhotoId}
+                onSelect={handleSelectPhoto}
                 onAdd={handleAddPhoto}
                 onRemove={handleRemovePhoto}
             />
          </aside>
 
+         {/* Backdrop for mobile sidebar */}
+         {isLeftSidebarOpen && (
+             <div 
+                className="fixed inset-0 bg-black/20 z-10 md:hidden backdrop-blur-sm"
+                onClick={() => setIsLeftSidebarOpen(false)}
+             ></div>
+         )}
+
          {/* Main Stage: Fashion Studio */}
-         <main className="flex-1 bg-gray-50 flex flex-col overflow-hidden relative">
+         <main className="flex-1 bg-gray-50 flex flex-col overflow-hidden relative w-full min-h-0">
             <FashionStudio 
                 selectedPhoto={selectedPhoto} 
                 onSaveLook={handleSaveLook}
+                onUpdateLook={handleUpdateLook}
+                onPromoteToModel={handlePromoteToModel}
+                history={history}
+                onRemoveLook={handleRemoveLook}
             />
          </main>
 
